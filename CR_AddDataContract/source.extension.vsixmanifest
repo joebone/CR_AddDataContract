@@ -6,6 +6,7 @@
     <Version>1.0</Version>
     <Description xml:space="preserve">AddDataContract for CodeRush adds a CodeProvider which will add appropriate DataContract and DataMember attributes to a class.</Description>
     <Locale>1033</Locale>
+    <Icon>CR-Plug-in.png</Icon>
     <SupportedProducts>
       <VisualStudio Version="10.0">
         <Edition>Pro</Edition>
