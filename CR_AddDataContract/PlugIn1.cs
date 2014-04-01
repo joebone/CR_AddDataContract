@@ -59,6 +59,8 @@ namespace CR_AddDataContract
             {
                 // Add Namespace Reference
                 AddNamespaceReference("System.Runtime.Serialization");
+                CodeRush.Project.AddReference(ActiveDoc.ProjectElement, "System.Runtime.Serialization");
+
                 // Add DataContract Attribute
                 AddAttribute(CodeRush.Source.ActiveClass, "DataContract");
                 foreach (Property prop in CodeRush.Source.ActiveClass.AllProperties)
