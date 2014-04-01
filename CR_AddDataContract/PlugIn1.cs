@@ -44,11 +44,10 @@ namespace CR_AddDataContract
         private void AddDataContract_CheckAvailability(Object sender, CheckContentAvailabilityEventArgs ea)
         {
             // Limit availability to when the caret is within the name of the active class.
-
             if (CodeRush.Source.ActiveClass == null)
                 return; // No active class
             if (!CodeRush.Source.ActiveClass.NameRange.Contains(CodeRush.Caret.SourcePoint))
-                return;  // Carent not in class name
+                return;  // Caret not in class name
             ea.Available = true;
         }
 
@@ -90,6 +89,7 @@ namespace CR_AddDataContract
             {
                 InsertionPoint = NamespaceReferences.Last().Range.Start;
             }
+
             // Generate new NamespaceReference
             var Code = CodeRush.CodeMod.GenerateCode(new NamespaceReference(NamespaceName));
             ActiveDoc.QueueInsert(InsertionPoint, Code);
