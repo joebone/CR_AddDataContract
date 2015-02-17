@@ -89,7 +89,7 @@ namespace CR_AddDataContract {
         private void AddAttribute(LanguageElement element, string AttributeName, int? DataOrder = null) {
             var Builder = new ElementBuilder();
             var Attribute = Builder.BuildAttribute(AttributeName);
-            
+
             if (AttributeName == "DataMember") {
 
                 if (DataOrder.HasValue) {
@@ -98,15 +98,15 @@ namespace CR_AddDataContract {
                         new ElementReferenceExpression("Order"), "=", new PrimitiveExpression(DataOrder.ToString())));
                 }
 
-                  Attribute.Arguments.Add(
-                    new AssignmentExpression(
-                        new ElementReferenceExpression("Name"), "=", new PrimitiveExpression("\"" + element.Name + "\"")));
+                Attribute.Arguments.Add(
+                  new AssignmentExpression(
+                      new ElementReferenceExpression("Name"), "=", new PrimitiveExpression("\"" + element.Name + "\"")));
                 Attribute.Arguments.Add(
                     new AssignmentExpression(
                         new ElementReferenceExpression("EmitDefaultValue"), "=", new PrimitiveExpression("false")));
-                 Attribute.Arguments.Add(
-                    new AssignmentExpression(
-                        new ElementReferenceExpression("IsRequired"), "=", new PrimitiveExpression("false")));
+                Attribute.Arguments.Add(
+                   new AssignmentExpression(
+                       new ElementReferenceExpression("IsRequired"), "=", new PrimitiveExpression("false")));
 
             }
 
