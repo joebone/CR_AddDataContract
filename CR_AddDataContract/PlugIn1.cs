@@ -9,21 +9,17 @@ using DevExpress.CodeRush.Core;
 using DevExpress.CodeRush.PlugInCore;
 using DevExpress.CodeRush.StructuralParser;
 
-namespace CR_AddDataContract
-{
-    public partial class PlugIn1 : StandardPlugIn
-    {
+namespace CR_AddDataContract {
+    public partial class PlugIn1 : StandardPlugIn {
         // DXCore-generated code...
         #region InitializePlugIn
-        public override void InitializePlugIn()
-        {
+        public override void InitializePlugIn() {
             base.InitializePlugIn();
             registerAddDataContract();
         }
         #endregion
         #region FinalizePlugIn
-        public override void FinalizePlugIn()
-        {
+        public override void FinalizePlugIn() {
             //
             // TODO: Add your finalization code here.
             //
@@ -31,8 +27,7 @@ namespace CR_AddDataContract
             base.FinalizePlugIn();
         }
         #endregion
-        public void registerAddDataContract()
-        {
+        public void registerAddDataContract() {
             DevExpress.CodeRush.Core.CodeProvider AddDataContract = new DevExpress.CodeRush.Core.CodeProvider(components);
             ((System.ComponentModel.ISupportInitialize)(AddDataContract)).BeginInit();
             AddDataContract.ProviderName = "AddDataContract"; // Should be Unique
@@ -41,8 +36,7 @@ namespace CR_AddDataContract
             AddDataContract.Apply += AddDataContract_Apply;
             ((System.ComponentModel.ISupportInitialize)(AddDataContract)).EndInit();
         }
-        private void AddDataContract_CheckAvailability(Object sender, CheckContentAvailabilityEventArgs ea)
-        {
+        private void AddDataContract_CheckAvailability(Object sender, CheckContentAvailabilityEventArgs ea) {
             // Limit availability to when the caret is within the name of the active class.
             if (CodeRush.Source.ActiveClass == null)
                 return; // No active class
@@ -51,30 +45,27 @@ namespace CR_AddDataContract
             ea.Available = true;
         }
 
-        private void AddDataContract_Apply(Object sender, ApplyContentEventArgs ea)
-        {
+        private void AddDataContract_Apply(Object sender, ApplyContentEventArgs ea) {
             TextDocument ActiveDoc = CodeRush.Documents.ActiveTextDocument;
 
-            using (ActiveDoc.NewCompoundAction("Add DataContract"))
-            {
+            using (ActiveDoc.NewCompoundAction("Add DataContract")) {
                 // Add Namespace Reference
                 AddNamespaceReference("System.Runtime.Serialization");
                 CodeRush.Project.AddReference(ActiveDoc.ProjectElement, "System.Runtime.Serialization");
 
                 // Add DataContract Attribute
                 AddAttribute(CodeRush.Source.ActiveClass, "DataContract");
-                foreach (Property prop in CodeRush.Source.ActiveClass.AllProperties)
-                {
+                int dataOrder = 0;
+                foreach (Property prop in CodeRush.Source.ActiveClass.AllProperties) {
                     // Add DataMember Attribute
-                    AddAttribute(prop, "DataMember");
+                    AddAttribute(prop, "DataMember", ++dataOrder);
                 }
                 CodeRush.Documents.ActiveTextDocument.ApplyQueuedEdits();
                 CodeRush.Documents.ActiveTextDocument.ParseIfNeeded();
                 CodeRush.Actions.Get("FormatFile").DoExecute();
             }
         }
-        private void AddNamespaceReference(string NamespaceName)
-        {
+        private void AddNamespaceReference(string NamespaceName) {
             TextDocument ActiveDoc = CodeRush.Documents.ActiveTextDocument;
             var finder = new ElementEnumerable(ActiveDoc.FileNode, LanguageElementType.NamespaceReference, true);
             var NamespaceReferences = finder.OfType<NamespaceReference>();
@@ -83,12 +74,10 @@ namespace CR_AddDataContract
 
             // Calculate Insert Location
             SourcePoint InsertionPoint;
-            if (ActiveDoc.NamespaceReferences.Count <= 0)
-            {
+            if (ActiveDoc.NamespaceReferences.Count <= 0) {
                 InsertionPoint = ActiveDoc.Range.Start;
             }
-            else
-            {
+            else {
                 InsertionPoint = NamespaceReferences.Last().Range.Start;
             }
 
@@ -96,10 +85,31 @@ namespace CR_AddDataContract
             var Code = CodeRush.CodeMod.GenerateCode(new NamespaceReference(NamespaceName));
             ActiveDoc.QueueInsert(InsertionPoint, Code);
         }
-        private void AddAttribute(LanguageElement element, string AttributeName)
-        {
+
+        private void AddAttribute(LanguageElement element, string AttributeName, int? DataOrder = null) {
             var Builder = new ElementBuilder();
             var Attribute = Builder.BuildAttribute(AttributeName);
+            
+            if (AttributeName == "DataMember") {
+
+                if (DataOrder.HasValue) {
+                    Attribute.Arguments.Add(
+                    new AssignmentExpression(
+                        new ElementReferenceExpression("Order"), "=", new PrimitiveExpression(DataOrder.ToString())));
+                }
+
+                  Attribute.Arguments.Add(
+                    new AssignmentExpression(
+                        new ElementReferenceExpression("Name"), "=", new PrimitiveExpression(AttributeName)));
+                Attribute.Arguments.Add(
+                    new AssignmentExpression(
+                        new ElementReferenceExpression("EmitDefaultValue"), "=", new PrimitiveExpression("false")));
+                 Attribute.Arguments.Add(
+                    new AssignmentExpression(
+                        new ElementReferenceExpression("IsRequired"), "=", new PrimitiveExpression("false")));
+
+            }
+
             var Section = Builder.BuildAttributeSection();
             Section.AddAttribute(Attribute);
             var Code = CodeRush.CodeMod.GenerateCode(Section, false);
