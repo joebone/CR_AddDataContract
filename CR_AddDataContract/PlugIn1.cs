@@ -100,7 +100,7 @@ namespace CR_AddDataContract {
 
                   Attribute.Arguments.Add(
                     new AssignmentExpression(
-                        new ElementReferenceExpression("Name"), "=", new PrimitiveExpression(AttributeName)));
+                        new ElementReferenceExpression("Name"), "=", new PrimitiveExpression("\"" + element.Name + "\"")));
                 Attribute.Arguments.Add(
                     new AssignmentExpression(
                         new ElementReferenceExpression("EmitDefaultValue"), "=", new PrimitiveExpression("false")));
