@@ -1,16 +1,11 @@
 //using System.ComponentModel;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Windows.Forms;
-using System.Runtime.Serialization;
 using DevExpress.CodeRush.Core;
 using DevExpress.CodeRush.PlugInCore;
 using DevExpress.CodeRush.StructuralParser;
 using System.Xml.Linq;
-//using Microsoft.TeamFoundation.Client;
 using Microsoft.TeamFoundation.VersionControl.Client;
-using NuGet;
 using Microsoft.VisualStudio.ComponentModelHost;
 using NuGet.VisualStudio;
 
@@ -208,7 +203,7 @@ namespace CR_AddDataContract {
                     var VSec = currentElement.Attributes[0].Parent as AttributeSection;
                     var NewVSec = Builder.BuildAttributeSection();
                     foreach (Attribute att in currentElement.Attributes) {
-                        if (new[] { "DataContract", "DataMember" }.Contains(att.Name))
+                        if (AttributeName == att.Name)
                             continue;
 
                         NewVSec.AddAttribute(att);
@@ -225,7 +220,7 @@ namespace CR_AddDataContract {
                 BuildNInsert(element, Builder, Attribute);
             }
         }
-        private void AddAttribute(LanguageElement element, string AttributeName, List<object> ConstructorParams = null, Dictionary<string, object> Values = null) {
+        private void AddAttribute(LanguageElement element, string AttributeName, List<object> ConstructorParams = null, Dictionary<string, object> AttributeArguments = null) {
             //var Builder = new ElementBuilder();
             var Builder = CodeRush.Language.GetElementBuilder(ActiveLanguage); //DevExpress.CodeRush.Common.Constants.Str.Language.CSharp
 
@@ -241,8 +236,8 @@ namespace CR_AddDataContract {
                 }
             }
 
-            if (Values != null) {
-                foreach (var kvp in Values) {
+            if (AttributeArguments != null) {
+                foreach (var kvp in AttributeArguments) {
                     object value;
                     switch (System.Type.GetTypeCode(kvp.Value.GetType())) {
                         case System.TypeCode.String: value = string.Format("\"{0}\"", (string)kvp.Value); break;
@@ -262,8 +257,8 @@ namespace CR_AddDataContract {
                     var VSec = currentElement.Attributes[0].Parent as AttributeSection;
                     var NewVSec = Builder.BuildAttributeSection();
                     foreach (Attribute att in currentElement.Attributes) {
-                        if (new[] { "DataContract", "DataMember" }.Contains(att.Name))
-                            continue;
+                        if (AttributeName == att.Name)
+                            continue; //if (new[] { AttributeName }.Contains(att.Name))
 
                         NewVSec.AddAttribute(att);
                     }

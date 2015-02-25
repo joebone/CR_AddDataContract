@@ -117,6 +117,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DataClassForTesting.cs" />
     <Compile Include="MyClass.cs" />
     <Compile Include="PlugIn1.cs">
       <SubType>Component</SubType>
