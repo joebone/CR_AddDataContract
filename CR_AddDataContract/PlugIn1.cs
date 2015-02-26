@@ -103,11 +103,13 @@ namespace CR_AddDataContract {
                 int dataOrder = 0;
                 foreach (Property prop in CodeRush.Source.ActiveClass.AllProperties) {
                     // Add DataMember Attribute
+                    if (!isContractable(prop)) continue;
                     AddAttribute(prop, "DataMember", ++dataOrder);
                 }
 
                 foreach (LanguageElement prop in CodeRush.Source.ActiveClass.AllFields) {
                     // Add DataMember Attribute
+                    if (!isContractable(prop)) continue;
                     AddAttribute(prop, "DataMember", ++dataOrder);
                 }
                 CodeRush.Documents.ActiveTextDocument.ApplyQueuedEdits();
@@ -366,6 +368,14 @@ namespace CR_AddDataContract {
         #endregion
 
 
+        private bool isContractable(LanguageElement prop) {
+            //throw new System.NotImplementedException();
+            var X = prop as Property;
+            if (X != null && (X.IsStatic || X.IsReadOnly || X.IsConst)) return false;
+            var Y = prop as Member;
+            if (Y != null && (Y.IsStatic || Y.IsReadOnly || Y.IsConst)) return false;
+            return true;
+        }
         private void AddProtoContract_Apply(object sender, ApplyContentEventArgs ea) {
 
             TextDocument ActiveDoc = CodeRush.Documents.ActiveTextDocument;
@@ -397,6 +407,7 @@ namespace CR_AddDataContract {
 
 
                 foreach (Property prop in CodeRush.Source.ActiveClass.AllProperties) {
+                    if (!isContractable(prop)) continue;
 
                     var Ctrs = new List<object> { ++dataOrder }; // tag = 1,2,3 etc ( not 0 based )
                     var atts = new Dictionary<string, object>(); // { {"tag", dataOrder} };
@@ -406,10 +417,12 @@ namespace CR_AddDataContract {
 
                 }
 
-                foreach (IHasAttributes prop in CodeRush.Source.ActiveClass.AllFields) {
+                foreach (Member Field in CodeRush.Source.ActiveClass.AllFields) {
+                    if (!isContractable(Field)) continue;
+
                     var Ctrs = new List<object> { ++dataOrder }; // tag = 1,2,3 etc ( not 0 based )
                     var atts = new Dictionary<string, object>(); // { {"tag", dataOrder} };
-                    AddAttribute((LanguageElement)prop, "ProtoMember", Ctrs, atts);
+                    AddAttribute((LanguageElement)Field, "ProtoMember", Ctrs, atts);
                 }
                 CodeRush.Documents.ActiveTextDocument.ApplyQueuedEdits();
                 CodeRush.Documents.ActiveTextDocument.ParseIfNeeded();
@@ -425,41 +438,30 @@ namespace CR_AddDataContract {
             var prj = ActiveDoc.Project;
 
 
-
-
+            XDocument xd = null;
+            XElement pbNode = null;
 
             var PackConfig = prj.EnumerateProjectItems().FirstOrDefault(itm => itm.Name.Contains("packages.config"));
-            if (PackConfig == null) {
-                prj.AddFile("packages.config");
-                PackConfig = prj.EnumerateProjectItems().FirstOrDefault(itm => itm.Name.Contains("packages.config"));
-            }
-
-
-
-            XDocument xd = XDocument.Load(PackConfig.FullPath);
-            var pbNode = (from nd in xd.Descendants("package")
+            if (PackConfig != null) {
+                //prj.AddFile("packages.config");
+                //PackConfig = prj.EnumerateProjectItems().FirstOrDefault(itm => itm.Name.Contains("packages.config"));
+                xd = XDocument.Load(PackConfig.FullPath);
+                pbNode = (from nd in xd.Descendants("package")
                           where
                             nd.Name.LocalName == "package" &&
                             nd.HasAttributes && nd.Attributes("id") != null && nd.Attribute("id").Value == "protobuf-net"
                           select nd).FirstOrDefault();
 
-            if (pbNode != null) {
-                //Protobuf already isntalled as a nuget package;
-                return;
+                if (pbNode != null) {
+                    //Protobuf already isntalled as a nuget package;
+                    return;
+                }
             }
 
-
-
-            var fi = new System.IO.FileInfo(prj.FileName);
-
             string packageID = "protobuf-net";
-            //IPackageRepository repo = PackageRepositoryFactory.Default.CreateRepository("https://packages.nuget.org/api/v2");
-            //var componentModel = (IComponentModel)GetService(typeof(SComponentModel));
             var componentModel = (IComponentModel)Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(SComponentModel));
 
-            IVsPackageInstallerServices installerServices = componentModel.GetService<IVsPackageInstallerServices>();
-            var installedPackages = installerServices.GetInstalledPackages();
-
+            IVsPackageInstallerServices installerServices = componentModel.GetService<IVsPackageInstallerServices>(); //var installedPackages = installerServices.GetInstalledPackages();
             if (!installerServices.IsPackageInstalled(prj.ProjectObject, packageID)) {
 
                 var Inst = componentModel.GetService<NuGet.VisualStudio.IVsPackageInstaller>();
@@ -474,8 +476,8 @@ namespace CR_AddDataContract {
                                 nd.HasAttributes && nd.Attributes("id") != null && nd.Attribute("id").Value == "protobuf-net"
                               select nd).FirstOrDefault();
                 }
-
             }
+            return;
 
             //List<IPackage> packages = repo.FindPackagesById(packageID).
             //    Where(pk => pk.Version.Version.Revision == 668 && pk.Version.Version.Major == 2).ToList();
@@ -494,20 +496,20 @@ namespace CR_AddDataContract {
             //VSLangProj110.References
 
 
-            if (pbNode == null) {
-                var NewLine = new XElement("package",
-                    new XAttribute("id", "protobuf-net"),
-                    new XAttribute("version", "2.0.0.668"),
-                    new XAttribute("targetFramework", "net40"));
-                xd.Element("packages").Add(NewLine);
-                var atts = System.IO.File.GetAttributes(PackConfig.FullPath);
-                if (atts.HasFlag(System.IO.FileAttributes.ReadOnly)) {
-                    // Not checked out in TFS
-                    tryCheckOut(PackConfig.FullPath);
+            //if (pbNode == null) {
+            //    var NewLine = new XElement("package",
+            //        new XAttribute("id", "protobuf-net"),
+            //        new XAttribute("version", "2.0.0.668"),
+            //        new XAttribute("targetFramework", "net40"));
+            //    xd.Element("packages").Add(NewLine);
+            //    var atts = System.IO.File.GetAttributes(PackConfig.FullPath);
+            //    if (atts.HasFlag(System.IO.FileAttributes.ReadOnly)) {
+            //        // Not checked out in TFS
+            //        tryCheckOut(PackConfig.FullPath);
 
-                }
-                xd.Save(PackConfig.FullPath);
-            }
+            //    }
+            //    xd.Save(PackConfig.FullPath);
+            //}
 
             //return PackConfig;
         }
