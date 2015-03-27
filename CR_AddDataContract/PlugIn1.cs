@@ -1,13 +1,13 @@
 //using System.ComponentModel;
-using System.Collections.Generic;
-using System.Linq;
 using DevExpress.CodeRush.Core;
 using DevExpress.CodeRush.PlugInCore;
 using DevExpress.CodeRush.StructuralParser;
-using System.Xml.Linq;
 using Microsoft.TeamFoundation.VersionControl.Client;
 using Microsoft.VisualStudio.ComponentModelHost;
 using NuGet.VisualStudio;
+using System.Collections.Generic;
+using System.Linq;
+using System.Xml.Linq;
 
 namespace CR_AddDataContract {
     public partial class PlugIn1 : StandardPlugIn {
@@ -371,11 +371,40 @@ namespace CR_AddDataContract {
         private bool isContractable(LanguageElement prop) {
             //throw new System.NotImplementedException();
             var X = prop as Property;
-            if (X != null && (X.IsStatic || X.IsReadOnly || X.IsConst)) return false;
+            if (X != null) {
+                if (X.IsStatic || X.IsReadOnly || X.IsConst) return false;
+                if (!IsSimpleProperty(X)) return false;
+            }
+
             var Y = prop as Member;
-            if (Y != null && (Y.IsStatic || Y.IsReadOnly || Y.IsConst)) return false;
+            if (Y != null) {
+                if (Y.IsStatic || Y.IsReadOnly || Y.IsConst) return false;
+            }
+
             return true;
         }
+        private bool IsSimpleProperty(Property activeProperty) {
+            if (activeProperty == null)
+                return false;
+
+            if (activeProperty.IsAutoImplemented)
+                return true;
+
+            Set setter = activeProperty.Setter;
+            Get getter = activeProperty.Getter;
+
+            if (setter == null || setter.NodeCount != 1)
+                return false;
+            if (getter == null || getter.NodeCount != 1)
+                return false;
+
+            LanguageElement setterNode = (LanguageElement)setter.Nodes[0];
+            LanguageElement getterNode = (LanguageElement)getter.Nodes[0];
+
+            return setterNode is Assignment && getterNode is Return;
+        }
+
+
         private void AddProtoContract_Apply(object sender, ApplyContentEventArgs ea) {
 
             TextDocument ActiveDoc = CodeRush.Documents.ActiveTextDocument;
@@ -402,11 +431,15 @@ namespace CR_AddDataContract {
                 AddNamespaceReference("System.Runtime.Serialization");
                 CodeRush.Project.AddReference(ActiveDoc.ProjectElement, "protobuf-net");
 
-                AddAttribute(CodeRush.Source.ActiveClass, "ProtoContract", -1);
+                Class ActiveClass = CodeRush.Source.ActiveClass;
+                AddAttribute(ActiveClass, "ProtoContract", -1);
                 int dataOrder = 0;
 
+                if (!ActiveClass.HasDefaultConstructor) {
 
-                foreach (Property prop in CodeRush.Source.ActiveClass.AllProperties) {
+                    AddDefaultConstructor(ActiveClass);
+                }
+                foreach (Property prop in ActiveClass.AllProperties) {
                     if (!isContractable(prop)) continue;
 
                     var Ctrs = new List<object> { ++dataOrder }; // tag = 1,2,3 etc ( not 0 based )
@@ -417,7 +450,7 @@ namespace CR_AddDataContract {
 
                 }
 
-                foreach (Member Field in CodeRush.Source.ActiveClass.AllFields) {
+                foreach (Member Field in ActiveClass.AllFields) {
                     if (!isContractable(Field)) continue;
 
                     var Ctrs = new List<object> { ++dataOrder }; // tag = 1,2,3 etc ( not 0 based )
@@ -429,6 +462,39 @@ namespace CR_AddDataContract {
                 CodeRush.Actions.Get("FormatFile").DoExecute();
                 CodeRush.Actions.Get("FormatFile").DoExecute();
             }
+        }
+        private void AddDefaultConstructor(Class activeClass) {
+            var Builder = CodeRush.Language.GetElementBuilder(ActiveLanguage); //DevExpress.CodeRush.Common.Constants.Str.Language.CSharp
+            //var comment = Builder.BuildComment("Empty constructor added por serialization", CommentType.SingleLine);
+            //var comment = Builder.BuildXmlDocComment("");
+            //var sub = Builder.AddXmlDocComment(comment, "<summary>Empty constructor added por serialization</summary>");
+
+            var comment = Builder.BuildXmlDocComment("<summary>Empty constructor added for serialization</summary>");
+            
+            var ccCon = Builder.BuildConstructor("public " + activeClass.Name);
+            var acces = Builder.BuildAccessSpecifiers(false, false, false, false);
+            
+            //ccCon.AddDetailNode();
+            ccCon.AddCommentNode(comment);
+
+
+            var Code = CodeRush.CodeMod.GenerateCode(ccCon, false);
+
+            var line = activeClass.Range.Start.Line + 2;
+            var col = 1;
+
+            foreach (Method allMethod in activeClass.AllMethods)
+            {
+            	if(allMethod.MethodType == MethodTypeEnum.Constructor)
+                {
+                     line = allMethod.Range.Start.Line;
+                     col = allMethod.Range.Start.Offset;
+                }
+            }
+
+            SourcePoint InsertionPoint = new SourcePoint(line, col);
+            CodeRush.Documents.ActiveTextDocument.QueueInsert(InsertionPoint, Code);
+            //activeClass.buil
         }
         private void LoadProtobufNuget(TextDocument ActiveDoc) {
 
@@ -458,25 +524,42 @@ namespace CR_AddDataContract {
                 }
             }
 
+
+
+            var pBar = CodeRush.Progress.GetProgressVisualizer(VisualizerType.WithProgressBar);
+            pBar.ProcessingStarted(6);
+            pBar.Description = "Loading Protobuf-net Nuget Package";
+
+            pBar.Visible = true;
+            pBar.Activate();
+
+
+
             string packageID = "protobuf-net";
             var componentModel = (IComponentModel)Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(SComponentModel));
+            pBar.ItemProcessed("ComponentModel Loaded", 1, 5);
 
             IVsPackageInstallerServices installerServices = componentModel.GetService<IVsPackageInstallerServices>(); //var installedPackages = installerServices.GetInstalledPackages();
+            pBar.ItemProcessed("IVsPackageInstallerServices initialized", 2, 4);
             if (!installerServices.IsPackageInstalled(prj.ProjectObject, packageID)) {
 
+                pBar.ItemProcessed("Package Not installed", 3, 3);
                 var Inst = componentModel.GetService<NuGet.VisualStudio.IVsPackageInstaller>();
+                pBar.ItemProcessed("IVsPackageInstaller initialized", 4, 2);
                 if (Inst != null) {
                     string NugetSource = null;
                     Inst.InstallPackage(NugetSource, prj.ProjectObject, "protobuf-net", "2.0.0.668", false);
-
+                    pBar.ItemProcessed("protobuf-net package 2.0.0.668 installed", 5, 1);
                     xd = XDocument.Load(PackConfig.FullPath);
                     pbNode = (from nd in xd.Descendants("package")
                               where
                                 nd.Name.LocalName == "package" &&
                                 nd.HasAttributes && nd.Attributes("id") != null && nd.Attribute("id").Value == "protobuf-net"
                               select nd).FirstOrDefault();
+                    pBar.ItemProcessed("packagesConfig checked", 6, 1);
                 }
             }
+            pBar.ProcessingFinished();
             return;
 
             //List<IPackage> packages = repo.FindPackagesById(packageID).
